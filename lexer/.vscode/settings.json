@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "fmt.h": "c",
+        "chrono": "c",
+        "functional": "c"
+    }
+}
