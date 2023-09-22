@@ -22,3 +22,6 @@ Mkfile.old
 dkms.conf
 
 *.lexer
+
+# ./lexer/program
+lexer/program

@@ -1,326 +1,284 @@
 #include "lexer.h"
-
-#include <stdio.h>
-
-struct lexer lexer_create(char *text)
+const char *tokenTypeToString(enum TOKEN_TYPE token)
 {
-    struct lexer lexer;
-    struct lexer_state state;
-
-    state.text = text;
-    state.currentPosition = 0;
-    state.length = strlen(text);
-    lexer.state = state;
-    return lexer;
+    const char *values[] = {"UNKNOWN", "IDENTIFIER", "NUMBER",  "STRING",     "CHARACTER_LITERAL", "OPERATOR",
+                            "KEYWORD", "COMMENT",    "NEWLINE", "WHITESPACE", "PUNCTUATION",       "END_OF_FILE"};
+    return values[token];
 }
-
-typedef int (*lexer_token_caplen_checker)(const char *text, int length);
-typedef struct lexer_token *(*lexer_token_parser)(const char *text, int length);
-
-struct complete_lexer_token_parser_bundle
+struct lexer_token_parser
 {
-    lexer_token_caplen_checker lengthChecker;
-    lexer_token_parser parser;
+    struct lexer_token (*parser)(const char *content, size_t contentLength);
 };
-
-struct lexer_bundle_array
+struct lexer_token lexer_tokenize(const char *content, size_t contentLength)
 {
-    struct complete_lexer_token_parser_bundle **bundles;
-    int length;
-};
-
-struct lexer_token *lexer_token_parse(const char *text, int length)
-{
-    // TODO: Move the lexer_bundle_array init logic into the lexer_state object because this doesn't need to happen
-    // every parse
-
-    struct lexer_bundle_array token_parser_bundles;
-    token_parser_bundles.bundles = malloc(1); // TODO: Fix the USE_PARSER macro
-    token_parser_bundles.length = 0;
-#define USE_PARSER(name)                                                                                               \
-    {                                                                                                                  \
-        struct complete_lexer_token_parser_bundle *bundle = malloc(sizeof(struct complete_lexer_token_parser_bundle)); \
-        bundle->lengthChecker = LEXER_TOKEN_PARSE_HANDLER_CAPLEN_NAME(name);                                           \
-        bundle->parser = LEXER_TOKEN_PARSE_HANDLER_PARSE_NAME(name);                                                   \
-        token_parser_bundles.bundles =                                                                                 \
-            realloc(token_parser_bundles.bundles,                                                                      \
-                    token_parser_bundles.length * sizeof(struct complete_lexer_token_parser_bundle) +                  \
-                        sizeof(struct complete_lexer_token_parser_bundle));                                            \
-        token_parser_bundles.bundles[token_parser_bundles.length] = bundle;                                            \
-        token_parser_bundles.length++;                                                                                 \
-    }
-
-    // Setup the parsers here
-    USE_PARSER(number);
-    USE_PARSER(string);
-    USE_PARSER(whitespace);
-    USE_PARSER(newline);
-
-    struct complete_lexer_token_parser_bundle *currentBestMatch = 0;
-    int bestCaptureLength = 0;
-
-    // Determine which parser bundle can capture the largest portion of text
-    for (int i = 0; i < token_parser_bundles.length; i++)
+    if (contentLength == 0)
     {
-        struct complete_lexer_token_parser_bundle *targetBundle = *(token_parser_bundles.bundles + i);
-        int capturableLength = targetBundle->lengthChecker(text, length);
-        if (capturableLength > bestCaptureLength)
+        struct lexer_token token;
+        token.token = content;
+        token.tokenLength = 0;
+        token.type = TOKEN_TYPE_END_OF_FILE;
+        return token;
+    }
+    struct lexer_token_parser parsers[] = {{commentParser},    {keywordParser},    {stringParser},
+                                           {numberParser},     {operatorParser},   {characterLiteralParser},
+                                           {identifierParser}, {whitespaceParser}, {newlineParser}};
+    struct lexer_token bestToken = {
+        .token = content,
+        .tokenLength = 0,
+        .type = TOKEN_TYPE_UNKNOWN,
+    };
+    for (size_t i = 0; i < sizeof(parsers) / sizeof(struct lexer_token_parser); i++)
+    {
+        struct lexer_token token = parsers[i].parser(content, contentLength);
+        if (token.tokenLength > bestToken.tokenLength)
         {
-            bestCaptureLength = capturableLength;
-            currentBestMatch = targetBundle;
+            // Better match than previous token
+            bestToken = token;
         }
     }
-
-    if (currentBestMatch == 0)
+    return bestToken;
+}
+LEXER_PARSER_FUNCTION(string)
+{
+    LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_STRING)
+    if (contentLength < 2)
     {
-        // No recognized tokens
-        struct lexer_token *result = malloc(sizeof(struct lexer_token));
-        lexer_token_initialize(result);
-        result->text = text;
-        // Walk forward until a token parser can capture the text
-        for (int i = 0; i < length; i++)
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+    if (content[0] != '"')
+    {
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+    size_t i = 1;
+    for (; i < contentLength; i++)
+    {
+        if (content[i] == '"')
         {
-            for (int j = 0; j < token_parser_bundles.length; j++)
+            break;
+        }
+    }
+    if (i == contentLength)
+    {
+        // No closing quote
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+    token.tokenLength = i + 1;
+    return token;
+}
+LEXER_PARSER_FUNCTION(number)
+{
+    LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_NUMBER);
+    if (contentLength == 0)
+    {
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+    size_t i = 0;
+    bool isNegative = false;
+    if (content[0] == '-')
+    {
+        isNegative = true;
+        i++;
+    }
+    bool hasDecimalPoint = false;
+    for (; i < contentLength; i++)
+    {
+        // Number can contain digits, and a single decimal point
+        if (content[i] == '.' && i != 0)
+        {
+            if (hasDecimalPoint)
             {
-                struct complete_lexer_token_parser_bundle *targetBundle = *(token_parser_bundles.bundles + j);
-                int capturableLength = targetBundle->lengthChecker(text + i, length - i);
-                if (capturableLength > 0)
-                {
-                    result->length = i;
-                    break;
-                }
+                // Number can only have one decimal point
+                LEXER_TOKEN_CANNOT_CAPTURE();
+            }
+            else
+            {
+                hasDecimalPoint = true;
             }
         }
-        result->type = LEXER_TOKEN_TYPE_UNKNOWN;
-        return result;
-    }
-    else
-    {
-        return currentBestMatch->parser(text, bestCaptureLength);
-    }
-
-#undef USE_PARSER
-}
-
-void lexer_state_add_child(struct lexer_state *lexer_state, struct lexer_token *child)
-{
-    if (lexer_state->children == 0)
-    {
-        lexer_state->children = malloc(sizeof(struct lexer_token *));
-    }
-    else if (lexer_state->childCount > 0)
-    {
-        lexer_state->children =
-            realloc(lexer_state->children, sizeof(struct lexer_token *) * (lexer_state->childCount + 1));
-    }
-
-    lexer_state->children[lexer_state->childCount] = child;
-    lexer_state->childCount++;
-}
-
-void lexer_token_initialize(struct lexer_token *token)
-{
-    token->childCount = 0;
-    token->children = 0;
-    token->length = 0;
-    token->text = 0;
-}
-
-void lexer_token_child_add(struct lexer_token *token, struct lexer_token *child)
-{
-    if (token->children == 0)
-    {
-        token->children = malloc(sizeof(struct lexer_token *));
-    }
-    else if (token->childCount > 0)
-    {
-        token->children = realloc(token->children, sizeof(struct lexer_token *) * (token->childCount + 1));
-    }
-
-    token->children[token->childCount] = child;
-    token->childCount++;
-}
-
-char *lexer_token_get_text(struct lexer_token *token)
-{
-    char *result = malloc(token->length + 1);
-    memcpy(result, token->text, token->length);
-    result[token->length] = '\0';
-    return result;
-}
-
-LEXER_TOKEN_PARSE_HANDLER_CAPLEN_DECL(number)
-{
-    int capturableLength = 0;
-
-    for (int i = 0; i < length; i++)
-    {
-        // 48 - 57 is the valid range of numbers
-        char value = *(text + i);
-        if (value > 57 || value < 48)
-        {
-            break; // Not a valid number, need to bail
-        }
-        capturableLength++;
-    }
-
-    return capturableLength;
-}
-
-LEXER_TOKEN_PARSE_HANDLER_PARSE_DECL(number)
-{
-    struct lexer_token *result = (struct lexer_token *)malloc(sizeof(struct lexer_token));
-
-    result->childCount = 0;
-    result->children = 0;
-    result->length = 0;
-    result->text = text;
-
-    result->type = LEXER_TOKEN_TYPE_NUMBER;
-
-    for (int i = 0; i < length; i++)
-    {
-        // 48 - 57 is the valid range of numbers
-        char value = *(text + i);
-        if (value > 57 || value < 48)
-        {
-            break; // Not a valid number, need to bail
-        }
-        result->length++;
-    }
-
-    return result;
-}
-
-LEXER_TOKEN_PARSE_HANDLER_CAPLEN_DECL(string)
-{
-    int capturableLength = 0;
-
-    if (length > 0 && *text == '"')
-    {
-        capturableLength++;
-        for (int i = 1; i < length; i++)
-        {
-            char value = *(text + i);
-            if (value == '"')
-            {
-                capturableLength++;
-                break;
-            }
-            capturableLength++;
-        }
-    }
-
-    return capturableLength;
-}
-
-LEXER_TOKEN_PARSE_HANDLER_PARSE_DECL(string)
-{
-    struct lexer_token *result = (struct lexer_token *)malloc(sizeof(struct lexer_token));
-
-    result->childCount = 0;
-    result->children = 0;
-    result->length = 0;
-    result->text = text;
-
-    result->type = LEXER_TOKEN_TYPE_STRING;
-
-    if (length > 0 && *text == '"')
-    {
-        result->length++;
-        for (int i = 1; i < length; i++)
-        {
-            char value = *(text + i);
-            if (value == '"')
-            {
-                result->length++;
-                break;
-            }
-            result->length++;
-        }
-    }
-
-    return result;
-}
-
-LEXER_TOKEN_PARSE_HANDLER_CAPLEN_DECL(whitespace)
-{
-    int capturableLength = 0;
-
-    for (int i = 0; i < length; i++)
-    {
-        char value = *(text + i);
-        if (value != ' ' && value != '\t')
+        else if (content[i] < '0' || content[i] > '9')
         {
             break;
         }
-        capturableLength++;
+    }
+    if (i == 0)
+    {
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+    if (i == 1 && isNegative)
+    {
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+    token.tokenLength = i;
+    return token;
+}
+LEXER_PARSER_FUNCTION(operator)
+{
+    // Possible tokens:
+    /**
+     * “.”   “<”   “>”   “(“   “)”   “+”   “-“   “*”   “/”   “|”   “&”   “;”   “,”   “:”
+“[“   “]”  “=”   “:=”   “..”   “<<”   “>>”   “<>”   “<=”   “>=”   “**”   “!=”   “=>”
+    */
+
+    const char *possibleOperatorTokens[] = {
+        ":=", "..", "<<", ">>", "<>", "<=", ">=", "**", "!=", "=>", ".", "<", ">", "(",
+        ")",  "+",  "-",  "*",  "/",  "|",  "&",  ";",  ",",  ":",  "[", "]", "="};
+
+    LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_OPERATOR);
+    if (contentLength == 0)
+    {
+        LEXER_TOKEN_CANNOT_CAPTURE();
     }
 
-    return capturableLength;
-}
-
-LEXER_TOKEN_PARSE_HANDLER_PARSE_DECL(whitespace)
-{
-    struct lexer_token *result = (struct lexer_token *)malloc(sizeof(struct lexer_token));
-
-    result->childCount = 0;
-    result->children = 0;
-    result->length = 0;
-    result->text = text;
-
-    result->type = LEXER_TOKEN_TYPE_WHITESPACE;
-
-    for (int i = 0; i < length; i++)
+    for (size_t i = 0; i < sizeof(possibleOperatorTokens) / sizeof(char *); i++)
     {
-        char value = *(text + i);
-        if (value != ' ' && value != '\t')
+        if (strncmp(content, possibleOperatorTokens[i], strlen(possibleOperatorTokens[i])) == 0)
+        {
+            token.tokenLength = strlen(possibleOperatorTokens[i]);
+            return token;
+        }
+    }
+
+    LEXER_TOKEN_CANNOT_CAPTURE();
+}
+LEXER_PARSER_FUNCTION(characterLiteral)
+{
+    LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_CHARACTER_LITERAL);
+    if (contentLength < 3)
+    {
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+    if (content[0] != '\'')
+    {
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+    size_t i = 1;
+    for (; i < contentLength; i++)
+    {
+        if (content[i] == '\'')
         {
             break;
         }
-        result->length++;
     }
-
-    return result;
-}
-
-LEXER_TOKEN_PARSE_HANDLER_CAPLEN_DECL(newline)
-{
-    int capturableLength = 0;
-
-    for (int i = 0; i < length; i++)
+    if (i == contentLength)
     {
-        char value = *(text + i);
-        if (value != '\n')
+        // No closing quote
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+    token.tokenLength = i + 1;
+    return token;
+}
+LEXER_PARSER_FUNCTION(identifier)
+{
+    // Must start with a letter
+    // Can contain letters, numbers, and underscores
+    LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_IDENTIFIER);
+    if (contentLength == 0)
+    {
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+    if (!((content[0] >= 'a' && content[0] <= 'z') || (content[0] >= 'A' && content[0] <= 'Z')))
+    {
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+    size_t i = 1;
+    for (; i < contentLength; i++)
+    {
+        if (!((content[i] >= 'a' && content[i] <= 'z') || (content[i] >= 'A' && content[i] <= 'Z') ||
+              (content[i] >= '0' && content[i] <= '9') || content[i] == '_'))
         {
             break;
         }
-        capturableLength++;
     }
-
-    return capturableLength;
+    token.tokenLength = i;
+    return token;
+}
+LEXER_PARSER_FUNCTION(keyword)
+{
+    // List of valid keywords:
+    /**
+     * accessor and array begin bool case character constant else elsif end exit function
+if in integer interface is loop module mutator natural null of or other out
+positive procedure range return struct subtype then type when while
+    */
+    LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_KEYWORD);
+    if (contentLength == 0)
+    {
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+    const char *keywords[] = {"character", "interface", "procedure", "accessor", "constant", "function", "positive",
+                              "integer",   "mutator",   "natural",   "subtype",  "module",   "return",   "struct",
+                              "array",     "begin",     "elsif",     "other",    "range",    "while",    "bool",
+                              "case",      "else",      "exit",      "loop",     "null",     "then",     "type",
+                              "when",      "and",       "end",       "out",      "if",       "in",       "is",
+                              "of",        "or"};
+    for (size_t i = 0; i < sizeof(keywords) / sizeof(char *); i++)
+    {
+        size_t keywordLen = strlen(keywords[i]);
+        if (strncmp(content, keywords[i], keywordLen) == 0)
+        {
+            // printf("Found keyword '%s'\n", keywords[i]);
+            token.tokenLength = keywordLen;
+            return token;
+        }
+        else
+        {
+            // printf("Keyword '%s' does not match '%.*s'\n", keywords[i], contentLength, content);
+        }
+    }
+    LEXER_TOKEN_CANNOT_CAPTURE();
+}
+LEXER_PARSER_FUNCTION(whitespace)
+{
+    LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_WHITESPACE);
+    size_t i = 0;
+    while (content[i] == ' ')
+    {
+        i++;
+    }
+    token.tokenLength = i;
+    return token;
+}
+LEXER_PARSER_FUNCTION(newline)
+{
+    LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_NEWLINE);
+    size_t i = 0;
+    while (content[i] == '\n')
+    {
+        i++;
+    }
+    token.tokenLength = i;
+    return token;
 }
 
-LEXER_TOKEN_PARSE_HANDLER_PARSE_DECL(newline)
+LEXER_PARSER_FUNCTION(comment)
 {
-    struct lexer_token *result = (struct lexer_token *)malloc(sizeof(struct lexer_token));
-
-    result->childCount = 0;
-    result->children = 0;
-    result->length = 0;
-    result->text = text;
-
-    result->type = LEXER_TOKEN_TYPE_NEWLINE;
-
-    for (int i = 0; i < length; i++)
+    // Comments start with /* and end with */
+    LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_COMMENT);
+    if (contentLength < 4)
     {
-        char value = *(text + i);
-        if (value != '\n')
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+
+    if (strncmp(content, "/*", 2) != 0)
+    {
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+
+    size_t i = 2;
+    for (; i < contentLength; i++)
+    {
+        if (strncmp(content + i, "*/", 2) == 0)
         {
             break;
         }
-        result->length++;
     }
 
-    return result;
+    if (i == contentLength)
+    {
+        // No closing comment
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+
+    token.tokenLength = i + 2;
+    return token;
 }

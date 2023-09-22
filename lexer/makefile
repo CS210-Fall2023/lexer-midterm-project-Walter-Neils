@@ -1,3 +1,3 @@
 program:
 # Disallow implicit conversions
-	gcc -o program main.c lexer.c -Wall -Wextra -Werror -Wpedantic -std=c99
+	gcc -o lexer *.c -Wall -std=c99

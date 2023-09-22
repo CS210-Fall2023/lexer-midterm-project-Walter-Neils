@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "fmt.h": "c",
+        "lexer.h": "c"
+    }
+}
