@@ -1,6 +1,7 @@
 #ifndef __LEXER_H__
 #define __LEXER_H__
 #include <stdlib.h>
+#include <stdio.h>
 #define bool int
 #define true 1
 #define false 0

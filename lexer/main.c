@@ -5,22 +5,20 @@
 
 void printToken(struct lexer_token *token)
 {
-    if (token->type == TOKEN_TYPE_UNKNOWN)
-    {
-        printf(".");
-        return;
-    }
-    char *tokenType = "unknown";
+    char *tokenType = "unknown [invalid token type]";
     switch (token->type)
     {
     case TOKEN_TYPE_UNKNOWN:
-        tokenType = "unknown";
+        tokenType = "unknown [PURPOSELY UNMATCHED]";
         break;
     case TOKEN_TYPE_IDENTIFIER:
         tokenType = "identifier";
         break;
     case TOKEN_TYPE_NUMBER:
         tokenType = "numeric literal";
+        break;
+    case TOKEN_TYPE_CHARACTER_LITERAL:
+        tokenType = "character literal";
         break;
     case TOKEN_TYPE_STRING:
         tokenType = "string";
@@ -66,12 +64,14 @@ int main(int argc, char **argv) // int argc, char **argv
         return -1;
     }
 
-    char *fileContentBuffer = calloc(2048, sizeof(char));
+    const size_t BUFFER_SIZE = 1024 * 1024 * 2;
+
+    char *fileContentBuffer = calloc(BUFFER_SIZE, sizeof(char));
 
     const char *targetFileName = argv[1];
     FILE *targetFile = fopen(targetFileName, "r");
     // Read the entire file into a buffer
-    fread(fileContentBuffer, sizeof(char), 2048, targetFile);
+    fread(fileContentBuffer, sizeof(char), BUFFER_SIZE, targetFile);
     fclose(targetFile); // I miss RAII
 
     size_t fileLength = strlen(fileContentBuffer);

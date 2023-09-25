@@ -36,6 +36,7 @@ struct lexer_token lexer_tokenize(const char *content, size_t contentLength)
             bestToken = token;
         }
     }
+
     return bestToken;
 }
 LEXER_PARSER_FUNCTION(string)
@@ -65,6 +66,7 @@ LEXER_PARSER_FUNCTION(string)
     token.tokenLength = i + 1;
     return token;
 }
+
 LEXER_PARSER_FUNCTION(number)
 {
     LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_NUMBER);
@@ -72,43 +74,52 @@ LEXER_PARSER_FUNCTION(number)
     {
         LEXER_TOKEN_CANNOT_CAPTURE();
     }
+
     size_t i = 0;
-    bool isNegative = false;
-    if (content[0] == '-')
+
+    if (content[0] == '.')
     {
-        isNegative = true;
-        i++;
+        LEXER_TOKEN_CANNOT_CAPTURE();
     }
-    bool hasDecimalPoint = false;
-    for (; i < contentLength; i++)
+
+    bool hasUsedDecimalPoint = false;
+
+    while (true)
     {
-        // Number can contain digits, and a single decimal point
-        if (content[i] == '.' && i != 0)
+        const bool passConditions[] = {(content[i] >= '0' && content[i] <= '9'), // 0-9
+                                       (content[i] == '.' && !hasUsedDecimalPoint && content[i + 1] != '.'),
+                                       (content[i] == '#')};
+
+        bool passed = false;
+        for (size_t j = 0; j < sizeof(passConditions) / sizeof(bool); j++)
         {
-            if (hasDecimalPoint)
+            if (passConditions[j])
             {
-                // Number can only have one decimal point
-                LEXER_TOKEN_CANNOT_CAPTURE();
-            }
-            else
-            {
-                hasDecimalPoint = true;
+                passed = true;
+                break;
             }
         }
-        else if (content[i] < '0' || content[i] > '9')
+
+        if (!passed)
         {
             break;
         }
+
+        if (content[i] == '.')
+        {
+            hasUsedDecimalPoint = true;
+        }
+
+        i++;
     }
+
     if (i == 0)
     {
         LEXER_TOKEN_CANNOT_CAPTURE();
     }
-    if (i == 1 && isNegative)
-    {
-        LEXER_TOKEN_CANNOT_CAPTURE();
-    }
+
     token.tokenLength = i;
+
     return token;
 }
 LEXER_PARSER_FUNCTION(operator)
@@ -127,9 +138,10 @@ LEXER_PARSER_FUNCTION(operator)
 
     for (size_t i = 0; i < sizeof(possibleOperatorTokens) / sizeof(char *); i++)
     {
-        if (strncmp(content, possibleOperatorTokens[i], strlen(possibleOperatorTokens[i])) == 0)
+        size_t tokenLen = strlen(possibleOperatorTokens[i]);
+        if (strncmp(content, possibleOperatorTokens[i], tokenLen) == 0)
         {
-            token.tokenLength = strlen(possibleOperatorTokens[i]);
+            token.tokenLength = tokenLen;
             return token;
         }
     }
