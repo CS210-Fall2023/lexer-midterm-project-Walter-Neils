@@ -114,10 +114,6 @@ LEXER_PARSER_FUNCTION(number)
 LEXER_PARSER_FUNCTION(operator)
 {
     // Possible tokens:
-    /**
-     * “.”   “<”   “>”   “(“   “)”   “+”   “-“   “*”   “/”   “|”   “&”   “;”   “,”   “:”
-“[“   “]”  “=”   “:=”   “..”   “<<”   “>>”   “<>”   “<=”   “>=”   “**”   “!=”   “=>”
-    */
 
     const char *possibleOperatorTokens[] = {
         ":=", "..", "<<", ">>", "<>", "<=", ">=", "**", "!=", "=>", ".", "<", ">", "(",
@@ -194,12 +190,6 @@ LEXER_PARSER_FUNCTION(identifier)
 }
 LEXER_PARSER_FUNCTION(keyword)
 {
-    // List of valid keywords:
-    /**
-     * accessor and array begin bool case character constant else elsif end exit function
-if in integer interface is loop module mutator natural null of or other out
-positive procedure range return struct subtype then type when while
-    */
     LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_KEYWORD);
     if (contentLength == 0)
     {
