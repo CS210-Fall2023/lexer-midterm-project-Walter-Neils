@@ -13,15 +13,20 @@ struct lexer_token lexer_tokenize(const char *content, size_t contentLength)
 {
     if (contentLength == 0)
     {
+        // Empty string. Return EOF token.
         struct lexer_token token;
         token.token = content;
         token.tokenLength = 0;
         token.type = TOKEN_TYPE_END_OF_FILE;
         return token;
     }
+
+    // Parser functions so we can iterate over them
     struct lexer_token_parser parsers[] = {{commentParser},    {keywordParser},    {stringParser},
                                            {numberParser},     {operatorParser},   {characterLiteralParser},
                                            {identifierParser}, {whitespaceParser}, {newlineParser}};
+
+    // Current best token
     struct lexer_token bestToken = {
         .token = content,
         .tokenLength = 0,
@@ -39,15 +44,18 @@ struct lexer_token lexer_tokenize(const char *content, size_t contentLength)
 
     return bestToken;
 }
+
 LEXER_PARSER_FUNCTION(string)
 {
     LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_STRING)
     if (contentLength < 2)
     {
+        // Minimum length is 2: ""
         LEXER_TOKEN_CANNOT_CAPTURE();
     }
     if (content[0] != '"')
     {
+        // Yeah that's not the start of a string
         LEXER_TOKEN_CANNOT_CAPTURE();
     }
     size_t i = 1;
@@ -55,6 +63,7 @@ LEXER_PARSER_FUNCTION(string)
     {
         if (content[i] == '"')
         {
+            // Yep that'd be the end of the string
             break;
         }
     }
@@ -79,6 +88,8 @@ LEXER_PARSER_FUNCTION(number)
 
     if (content[0] == '.')
     {
+        // This conditional is really important because otherwise the lexer tries to parse the righthand side of a range
+        // as a number
         LEXER_TOKEN_CANNOT_CAPTURE();
     }
 
@@ -115,6 +126,10 @@ LEXER_PARSER_FUNCTION(number)
 
     if (i == 0)
     {
+        // Ah yes, the classic zero-length number
+        // Yessir, that's definitely a number right there
+        // See him? He's hiding in between the bytes
+        // In case sarcasm isn't obvious, this means we didn't find a number
         LEXER_TOKEN_CANNOT_CAPTURE();
     }
 
@@ -124,8 +139,9 @@ LEXER_PARSER_FUNCTION(number)
 }
 LEXER_PARSER_FUNCTION(operator)
 {
-    // Possible tokens:
-
+    // These NEED to be in order of longest to shortest
+    // Otherwise the lexer will match the first character of a longer operator
+    // And that's not quite what we want
     const char *possibleOperatorTokens[] = {
         ":=", "..", "<<", ">>", "<>", "<=", ">=", "**", "!=", "=>", ".", "<", ">", "(",
         ")",  "+",  "-",  "*",  "/",  "|",  "&",  ";",  ",",  ":",  "[", "]", "="};
@@ -133,14 +149,19 @@ LEXER_PARSER_FUNCTION(operator)
     LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_OPERATOR);
     if (contentLength == 0)
     {
+        // That's not an operator, that's an empty string.
         LEXER_TOKEN_CANNOT_CAPTURE();
     }
 
     for (size_t i = 0; i < sizeof(possibleOperatorTokens) / sizeof(char *); i++)
     {
         size_t tokenLen = strlen(possibleOperatorTokens[i]);
+        // Through the power of strncmp, we can accomplish anything
         if (strncmp(content, possibleOperatorTokens[i], tokenLen) == 0)
         {
+            // I hate the fact that strncmp returns 0 on success
+            // You're not a process, strncmp, you're a function
+            // You're supposed to return 1 on success so I can use you in if statements without having to negate you
             token.tokenLength = tokenLen;
             return token;
         }
@@ -153,14 +174,16 @@ LEXER_PARSER_FUNCTION(characterLiteral)
     LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_CHARACTER_LITERAL);
     if (contentLength < 3)
     {
+        // Minimum length is 3: 'a'
         LEXER_TOKEN_CANNOT_CAPTURE();
     }
     if (content[0] != '\'')
     {
+        // Yeah that's not the start of a character literal
         LEXER_TOKEN_CANNOT_CAPTURE();
     }
     size_t i = 1;
-    for (; i < contentLength; i++)
+    for (; i < contentLength; i++) // This is literally the string logic. It just works (TM)
     {
         if (content[i] == '\'')
         {
@@ -207,6 +230,10 @@ LEXER_PARSER_FUNCTION(keyword)
     {
         LEXER_TOKEN_CANNOT_CAPTURE();
     }
+
+    // Again, these need to be in order of longest to shortest
+    // Otherwise the lexer will match the first character of a longer keyword
+    // Which is not what we want
     const char *keywords[] = {"character", "interface", "procedure", "accessor", "constant", "function", "positive",
                               "integer",   "mutator",   "natural",   "subtype",  "module",   "return",   "struct",
                               "array",     "begin",     "elsif",     "other",    "range",    "while",    "bool",
@@ -218,13 +245,9 @@ LEXER_PARSER_FUNCTION(keyword)
         size_t keywordLen = strlen(keywords[i]);
         if (strncmp(content, keywords[i], keywordLen) == 0)
         {
-            // printf("Found keyword '%s'\n", keywords[i]);
+            // Honestly, why does strncmp return 0 on success
             token.tokenLength = keywordLen;
             return token;
-        }
-        else
-        {
-            // printf("Keyword '%s' does not match '%.*s'\n", keywords[i], contentLength, content);
         }
     }
     LEXER_TOKEN_CANNOT_CAPTURE();
@@ -235,6 +258,7 @@ LEXER_PARSER_FUNCTION(whitespace)
     size_t i = 0;
     while (content[i] == ' ')
     {
+        // Yep that's a space
         i++;
     }
     token.tokenLength = i;
@@ -246,6 +270,7 @@ LEXER_PARSER_FUNCTION(newline)
     size_t i = 0;
     while (content[i] == '\n')
     {
+        // Yep that's a newline
         i++;
     }
     token.tokenLength = i;

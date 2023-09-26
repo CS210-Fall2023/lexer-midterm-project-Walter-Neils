@@ -16,7 +16,7 @@ print_info() {
 }
 
 for file in files/*.cci; do
-    ./lexer/lexer $file >${file}.lexer
+    cat ${file} | ./lexer/lexer $file >${file}.lexer
     print_info "${file}.ANS vs. ${file}.lexer"
     #diff ${file}.ANS  ${file}.lexer
     if [[ $(diff ${file}.ANS ${file}.lexer) ]]; then #if output of diff command is not zero
@@ -28,7 +28,7 @@ for file in files/*.cci; do
 done
 
 for file in files/*.ccx; do
-    ./lexer/lexer $file >${file}.lexer
+    cat ${file} | ./lexer/lexer $file >${file}.lexer
     print_info "${file}.ANS vs. ${file}.lexer"
     #diff ${file}.ANS  ${file}.lexer
     if [[ $(diff ${file}.ANS ${file}.lexer) ]]; then #if output of diff command is not zero

@@ -2,10 +2,14 @@
 #define __LEXER_H__
 #include <stdlib.h>
 #include <stdio.h>
+
+// The fact that I have to do this is downright hilarious
 #define bool int
 #define true 1
 #define false 0
 
+// List of all possible token types
+// Some aren't displayed, but useful to capture them to keep lexer behaviour indiscriminate
 enum TOKEN_TYPE
 {
     TOKEN_TYPE_UNKNOWN = 0,
@@ -22,10 +26,22 @@ enum TOKEN_TYPE
     TOKEN_TYPE_END_OF_FILE
 };
 
+/**
+ * @brief A token returned by the lexer
+ */
 struct lexer_token
 {
+    /**
+     * @brief A pointer to the start of the token. This is a pointer to the original string passed to the lexer.
+     */
     char *token;
+    /**
+     * @brief The length of the token
+     */
     size_t tokenLength;
+    /**
+     * @brief The type of the token
+     */
     enum TOKEN_TYPE type;
 };
 
@@ -43,6 +59,12 @@ struct lexer_token
     token.tokenLength = 0;                                                                                             \
     return token;
 
+/**
+ * @brief Tokenizes a string
+ * @param content The string to tokenize
+ * @param contentLength The length of the string to tokenize
+ * @returns A token struct
+ */
 struct lexer_token lexer_tokenize(const char *content, size_t contentLength);
 
 LEXER_PARSER_FUNCTION(string);
