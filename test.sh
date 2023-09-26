@@ -12,7 +12,7 @@ print_error() {
 
 # Usage: print_info <message>
 print_info() {
-    printf "\e[0;33m  [ℹ] %s\e[0m\n" "$1"
+    printf "\e[0;34m  [i] %s\e[0m\n" "$1"
 }
 
 for file in files/*.cci; do
