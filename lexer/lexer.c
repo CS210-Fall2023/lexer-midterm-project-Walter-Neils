@@ -45,7 +45,7 @@ void printToken(struct lexer_token *token, FILE *outputStream)
         break;
     }
     // TOKEN_CONTENT (TOKEN_TYPE)
-    printf("%.*s (%s)\n", (int)token->tokenLength, token->token, tokenType);
+    fprintf(outputStream, "%.*s (%s)\n", (int)token->tokenLength, token->token, tokenType);
 }
 
 struct lexer_token_parser
@@ -298,6 +298,12 @@ LEXER_PARSER_FUNCTION(keyword)
 LEXER_PARSER_FUNCTION(whitespace)
 {
     LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_WHITESPACE);
+
+    if (contentLength == 0)
+    {
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+
     size_t i = 0;
     while (content[i] == ' ')
     {
@@ -310,6 +316,12 @@ LEXER_PARSER_FUNCTION(whitespace)
 LEXER_PARSER_FUNCTION(newline)
 {
     LEXER_TOKEN_INIT_RESULT(TOKEN_TYPE_NEWLINE);
+
+    if (contentLength == 0)
+    {
+        LEXER_TOKEN_CANNOT_CAPTURE();
+    }
+
     size_t i = 0;
     while (content[i] == '\n')
     {
