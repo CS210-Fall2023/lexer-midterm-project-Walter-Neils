@@ -2,6 +2,7 @@
 #define __LEXER_H__
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 // The fact that I have to do this is downright hilarious
 #define bool int
@@ -34,7 +35,7 @@ struct lexer_token
     /**
      * @brief A pointer to the start of the token. This is a pointer to the original string passed to the lexer.
      */
-    char *token;
+    const char *token;
     /**
      * @brief The length of the token
      */
@@ -66,15 +67,66 @@ struct lexer_token
  * @returns A token struct
  */
 struct lexer_token lexer_tokenize(const char *content, size_t contentLength);
+/*
+ * @brief Prints a token to a stream
+ * @param token The token to print
+ * @param outputStream The stream to print to
+ */
+void printToken(struct lexer_token *token, FILE *outputStream);
 
+/*
+ * @brief Parses a string literal
+ * @param content The string to parse
+ * @param contentLength The length of the string to try to parse
+ */
 LEXER_PARSER_FUNCTION(string);
+/*
+ * @brief Parses a number literal
+ * @param content The string to parse
+ * @param contentLength The length of the string to try to parse
+ */
 LEXER_PARSER_FUNCTION(number);
+/*
+ * @brief Parses an operator
+ * @param content The string to parse
+ * @param contentLength The length of the string to try to parse
+ */
 LEXER_PARSER_FUNCTION(operator);
+/*
+ * @brief Parses a character literal
+ * @param content The string to parse
+ * @param contentLength The length of the string to try to parse
+ */
 LEXER_PARSER_FUNCTION(characterLiteral);
+/*
+ * @brief Parses an identifier
+ * @param content The string to parse
+ * @param contentLength The length of the string to try to parse
+ */
 LEXER_PARSER_FUNCTION(identifier);
+/*
+ * @brief Parses a keyword
+ * @param content The string to parse
+ * @param contentLength The length of the string to try to parse
+ */
 LEXER_PARSER_FUNCTION(keyword);
+/*
+ * @brief Parses a whitespace character
+ * @param content The string to parse
+ * @param contentLength The length of the string to try to parse
+ */
 LEXER_PARSER_FUNCTION(whitespace);
+/*
+ * @brief Parses a newline character
+ * @param content The string to parse
+ * @param contentLength The length of the string to try to parse
+ */
 LEXER_PARSER_FUNCTION(newline);
+/*
+ * @brief Parses a comment
+ * @param content The string to parse
+ * @param contentLength The length of the string to try to parse
+ */
 LEXER_PARSER_FUNCTION(comment);
 
 #endif

@@ -8,56 +8,8 @@
 // If false, reads from a file and writes to a file
 // I've modified the test script to allow this
 // Because unix pipes are cool :)
-#define UNIX_MODE true
+#define UNIX_MODE false
 #define FILE_MODE !UNIX_MODE
-
-void printToken(struct lexer_token *token)
-{
-    char *tokenType = "unknown [invalid token type]";
-    switch (token->type)
-    {
-    case TOKEN_TYPE_UNKNOWN:
-        tokenType = "unknown [PURPOSELY UNMATCHED]";
-        break;
-    case TOKEN_TYPE_IDENTIFIER:
-        tokenType = "identifier";
-        break;
-    case TOKEN_TYPE_NUMBER:
-        tokenType = "numeric literal";
-        break;
-    case TOKEN_TYPE_CHARACTER_LITERAL:
-        tokenType = "character literal";
-        break;
-    case TOKEN_TYPE_STRING:
-        tokenType = "string";
-        break;
-    case TOKEN_TYPE_OPERATOR:
-        tokenType = "operator";
-        break;
-    case TOKEN_TYPE_KEYWORD:
-        tokenType = "keyword";
-        break;
-    case TOKEN_TYPE_COMMENT:
-        tokenType = "comment";
-        break;
-    case TOKEN_TYPE_NEWLINE:
-        tokenType = "newline";
-        break;
-    case TOKEN_TYPE_WHITESPACE:
-        tokenType = "whitespace";
-        break;
-    case TOKEN_TYPE_PUNCTUATION:
-        tokenType = "punctuation";
-        break;
-    case TOKEN_TYPE_END_OF_FILE:
-        tokenType = "eof";
-        break;
-    default:
-        break;
-    }
-    // TOKEN_CONTENT (TOKEN_TYPE)
-    printf("%.*s (%s)\n", token->tokenLength, token->token, tokenType);
-}
 
 int max(int l, int r)
 {
@@ -96,17 +48,17 @@ int main(int argc, char **argv) // int argc, char **argv
         return -1;
     }
 
-    FILE *oldStdOut = stdout;
+    // FILE *oldStdOut = stdout;
 
-    if (FILE_MODE)
-    {
-        const char *targetFileName = argv[1];
-        // ${targetFileName}.lexer
-        char *outputFileName = calloc(strlen(targetFileName) + 7, sizeof(char));
-        strcpy(outputFileName, targetFileName);
-        strcat(outputFileName, ".lexer");
-        stdout = fopen(outputFileName, "w");
-    }
+    // if (FILE_MODE)
+    // {
+    //     const char *targetFileName = argv[1];
+    //     // ${targetFileName}.lexer
+    //     char *outputFileName = calloc(strlen(targetFileName) + 7, sizeof(char));
+    //     strcpy(outputFileName, targetFileName);
+    //     strcat(outputFileName, ".lexer");
+    //     stdout = fopen(outputFileName, "w");
+    // }
 
     size_t fileLength = strlen(fileContentBuffer);
 
@@ -123,6 +75,18 @@ int main(int argc, char **argv) // int argc, char **argv
 
     offset += max(token.tokenLength, 1); // Unknown token length is zero, so we need to increment by at least one
 
+    FILE *desiredOutput = FILE_MODE ? 0 : stdout;
+
+    if (desiredOutput == 0)
+    {
+        const char *targetFileName = argv[1];
+        // ${targetFileName}.lexer
+        char *outputFileName = calloc(strlen(targetFileName) + 7, sizeof(char));
+        strcpy(outputFileName, targetFileName);
+        strcat(outputFileName, ".lexer");
+        desiredOutput = fopen(outputFileName, "w");
+    }
+
     while (token.type != TOKEN_TYPE_END_OF_FILE)
     {
         do
@@ -134,17 +98,11 @@ int main(int argc, char **argv) // int argc, char **argv
             case TOKEN_TYPE_END_OF_FILE:
                 break; // Don't display whitespace, newlines, or EOF
             default:
-                printToken(&token);
+                printToken(&token, desiredOutput);
             }
         } while (false);
         token = lexer_tokenize(fileContentBuffer + offset, fileLength - offset);
         offset += max(token.tokenLength, 1);
-    }
-
-    if (FILE_MODE)
-    {
-        fclose(stdout);
-        stdout = oldStdOut;
     }
 
     return 0;

@@ -1,10 +1,53 @@
 #include "lexer.h"
-const char *tokenTypeToString(enum TOKEN_TYPE token)
+
+void printToken(struct lexer_token *token, FILE *outputStream)
 {
-    const char *values[] = {"UNKNOWN", "IDENTIFIER", "NUMBER",  "STRING",     "CHARACTER_LITERAL", "OPERATOR",
-                            "KEYWORD", "COMMENT",    "NEWLINE", "WHITESPACE", "PUNCTUATION",       "END_OF_FILE"};
-    return values[token];
+    char *tokenType = "unknown [invalid token type]";
+    switch (token->type)
+    {
+    case TOKEN_TYPE_UNKNOWN:
+        tokenType = "unknown [PURPOSELY UNMATCHED]";
+        break;
+    case TOKEN_TYPE_IDENTIFIER:
+        tokenType = "identifier";
+        break;
+    case TOKEN_TYPE_NUMBER:
+        tokenType = "numeric literal";
+        break;
+    case TOKEN_TYPE_CHARACTER_LITERAL:
+        tokenType = "character literal";
+        break;
+    case TOKEN_TYPE_STRING:
+        tokenType = "string";
+        break;
+    case TOKEN_TYPE_OPERATOR:
+        tokenType = "operator";
+        break;
+    case TOKEN_TYPE_KEYWORD:
+        tokenType = "keyword";
+        break;
+    case TOKEN_TYPE_COMMENT:
+        tokenType = "comment";
+        break;
+    case TOKEN_TYPE_NEWLINE:
+        tokenType = "newline";
+        break;
+    case TOKEN_TYPE_WHITESPACE:
+        tokenType = "whitespace";
+        break;
+    case TOKEN_TYPE_PUNCTUATION:
+        tokenType = "punctuation";
+        break;
+    case TOKEN_TYPE_END_OF_FILE:
+        tokenType = "eof";
+        break;
+    default:
+        break;
+    }
+    // TOKEN_CONTENT (TOKEN_TYPE)
+    printf("%.*s (%s)\n", (int)token->tokenLength, token->token, tokenType);
 }
+
 struct lexer_token_parser
 {
     struct lexer_token (*parser)(const char *content, size_t contentLength);
