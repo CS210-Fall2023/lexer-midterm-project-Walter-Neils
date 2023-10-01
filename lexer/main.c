@@ -11,10 +11,7 @@
 #define UNIX_MODE false
 #define FILE_MODE !UNIX_MODE
 
-int max(int l, int r)
-{
-    return l > r ? l : r;
-}
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 int main(int argc, char **argv) // int argc, char **argv
 {
@@ -48,18 +45,6 @@ int main(int argc, char **argv) // int argc, char **argv
         return -1;
     }
 
-    // FILE *oldStdOut = stdout;
-
-    // if (FILE_MODE)
-    // {
-    //     const char *targetFileName = argv[1];
-    //     // ${targetFileName}.lexer
-    //     char *outputFileName = calloc(strlen(targetFileName) + 7, sizeof(char));
-    //     strcpy(outputFileName, targetFileName);
-    //     strcat(outputFileName, ".lexer");
-    //     stdout = fopen(outputFileName, "w");
-    // }
-
     size_t fileLength = strlen(fileContentBuffer);
 
     if (fileLength == BUFFER_SIZE)
@@ -73,7 +58,7 @@ int main(int argc, char **argv) // int argc, char **argv
 
     struct lexer_token token = lexer_tokenize(fileContentBuffer, fileLength);
 
-    offset += max(token.tokenLength, 1); // Unknown token length is zero, so we need to increment by at least one
+    offset += MAX(token.tokenLength, 1); // Unknown token length is zero, so we need to increment by at least one
 
     FILE *desiredOutput = FILE_MODE ? 0 : stdout;
 
@@ -102,7 +87,7 @@ int main(int argc, char **argv) // int argc, char **argv
             }
         } while (false);
         token = lexer_tokenize(fileContentBuffer + offset, fileLength - offset);
-        offset += max(token.tokenLength, 1);
+        offset += MAX(token.tokenLength, 1);
     }
 
     return 0;
